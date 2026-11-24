@@ -6,8 +6,13 @@ Clickable GitHub pull-request and Linear ticket references in [omp](https://omp.
 opens in the browser instead of being copied into one. The reply's stored text never changes: this
 rewrites only what the transcript draws, so the session file, `-p` output and copy-paste stay plain.
 
-Left alone: fenced blocks, inline code, existing markdown links, bare URLs, and any `KEY-12` whose
-key is not in the configured team list.
+Commit SHAs link too: 7 to 40 lowercase hex characters containing both a digit and a letter
+(`f328eb4`), bare or as `owner/repo@f328eb4`, and a code span that is exactly one SHA
+(`` `f328eb4` ``), which keeps its code style inside the link. A bare SHA needs the repo, and an
+all-digit SHA stays plain. Nothing is checked offline, so a SHA from another repo links to a 404.
+
+Left alone: fenced blocks, other inline code, existing markdown links, bare URLs, and any `KEY-12`
+whose key is not in the configured team list.
 
 ## Install
 

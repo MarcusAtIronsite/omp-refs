@@ -45,4 +45,30 @@ if (noLinear !== "[#4705](https://github.com/acme/widgets/issues/4705) and ABC-1
 	print("FAIL no linear: " + JSON.stringify(noLinear));
 }
 
+const SHA = "f328eb49075cbba210aeb84c78caf3700c35687a";
+const commit = (text, repo) => `[${text}](https://github.com/${repo}/commit/${text.replace(/`/g, "").replace(/^.*@/, "")})`;
+expect("bare sha", "fixed in f328eb4.", "fixed in " + commit("f328eb4", "acme/widgets") + ".");
+expect("full sha", "at " + SHA + " now", "at " + commit(SHA, "acme/widgets") + " now");
+expect("backticked sha", "see `f328eb4` there", "see [`f328eb4`](https://github.com/acme/widgets/commit/f328eb4) there");
+expect("repo sha", "in acme/other@f328eb4 too", "in [acme/other@f328eb4](https://github.com/acme/other/commit/f328eb4) too");
+expect("backticked repo sha", "`acme/other@f328eb4`", "[`acme/other@f328eb4`](https://github.com/acme/other/commit/f328eb4)");
+expect("words and numbers", "defaced decade 1234567 deadbeef 20250101", undefined);
+expect("backticked number", "`1234567` and `deadbeef`", undefined);
+expect("code span with more", "run `git show f328eb4`", undefined);
+expect("sha in fence", "```\nf328eb4\n```", undefined);
+expect("sha in url", "https://github.com/acme/widgets/commit/f328eb4", undefined);
+expect("sha in link", "[`f328eb4`](https://github.com/acme/widgets/commit/f328eb4)", undefined);
+expect("sha in filename", "src/f328eb4.ts and f328eb4-x and a#f328eb4", undefined);
+expect("uuid", "550e8400-e29b-41d4-a716-446655440000", undefined);
+expect("too short or long", "f328eb and " + SHA + "0", undefined);
+const shaOnce = linkify("see f328eb4 and `f328eb4`", opts);
+expect("sha second pass", shaOnce, undefined);
+
+// No repo: a bare SHA has nowhere to point, a repo-qualified one still links.
+const noRepoSha = linkify("f328eb4, `f328eb4` and acme/other@f328eb4", { teams: [], workspace: "" });
+if (noRepoSha !== "f328eb4, `f328eb4` and [acme/other@f328eb4](https://github.com/acme/other/commit/f328eb4)") {
+	failed += 1;
+	print("FAIL no repo sha: " + JSON.stringify(noRepoSha));
+}
+
 print(failed === 0 ? "all tests passed" : failed + " failed");

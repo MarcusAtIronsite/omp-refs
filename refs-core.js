@@ -1,19 +1,20 @@
 // Issue and PR references in assistant text, turned into markdown links.
 // Pure: no imports, so any JavaScript engine can test it.
 
-/** Spans that must never be rewritten: code, existing links, bare URLs. */
+/** Spans that must never be rewritten: fences, existing links, bare URLs. Inline code is masked separately. */
 const PROTECTED = [
 	/```[\s\S]*?```/g,
 	/~~~[\s\S]*?~~~/g,
-	/`[^`\n]*`/g,
 	/!?\[[^\]\n]*\]\([^)\n]*\)/g,
 	/<https?:\/\/[^>\s]+>/g,
 	/https?:\/\/[^\s<>()\[\]]+/g,
 ];
 
-function maskOf(text) {
+const INLINE_CODE = /`[^`\n]*`/g;
+
+function maskOf(text, withInlineCode) {
 	const blocked = new Uint8Array(text.length);
-	for (const pattern of PROTECTED) {
+	for (const pattern of withInlineCode ? [...PROTECTED, INLINE_CODE] : PROTECTED) {
 		pattern.lastIndex = 0;
 		let match;
 		while ((match = pattern.exec(text)) !== null) {
@@ -29,10 +30,18 @@ const OWNER_REPO_REF = /^([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9._-]+)#([1-9]\
 const BARE_REF = /^#([1-9]\d{1,5})(?!\d)/;
 const TICKET = /^([A-Z][A-Z0-9]{1,5})-([1-9]\d{0,5})(?!\d)/;
 const WORDISH = /[A-Za-z0-9_&#/[]/;
+const HEX_RUN = "[0-9a-f]{7,40}";
+const HEX = `${HEX_RUN}(?![0-9A-Za-z_-]|\\.[0-9A-Za-z])`;
+const BARE_SHA = new RegExp(`^${HEX}`);
+const REPO_SHA = new RegExp(`^([A-Za-z0-9][A-Za-z0-9._-]*)/([A-Za-z0-9._-]+)@(${HEX})`);
+const CODE_SHA = new RegExp(`^\`(?:([A-Za-z0-9][A-Za-z0-9._-]*)/([A-Za-z0-9._-]+)@)?(${HEX_RUN})\``);
+const SHA_BEFORE = /[A-Za-z0-9_/.#@-]/;
+const isSha = text => /\d/.test(text) && /[a-f]/.test(text);
 
 /**
- * Rewrites `owner/repo#12`, `#12` and `ABC-12` into markdown links.
- * `#12` needs a GitHub repo (owner/repo); `ABC-12` needs its key in `teams`.
+ * Rewrites `owner/repo#12`, `#12`, `ABC-12` and commit SHAs into markdown links.
+ * `#12` and a bare SHA need a GitHub repo (owner/repo); `ABC-12` needs its key in `teams`.
+ * A SHA is 7-40 lowercase hex characters holding a digit and a letter, so words and numbers stay plain.
  * Returns undefined when there is nothing to rewrite.
  */
 export function linkify(text, options) {
@@ -40,9 +49,10 @@ export function linkify(text, options) {
 	const repo = options && options.repo;
 	const workspace = (options && options.workspace) || "linear.app";
 	const teams = new Set(((options && options.teams) || []).map(key => String(key).toUpperCase()));
-	const blocked = maskOf(text);
-	const free = (start, length) => {
-		for (let i = start; i < start + length; i += 1) if (blocked[i] === 1) return false;
+	const blocked = maskOf(text, true);
+	const outer = maskOf(text, false);
+	const free = (start, length, mask = blocked) => {
+		for (let i = start; i < start + length; i += 1) if (mask[i] === 1) return false;
 		return true;
 	};
 	let out = "";
@@ -71,6 +81,31 @@ export function linkify(text, options) {
 			index += match[0].length;
 			changed = true;
 			continue;
+		}
+		match = REPO_SHA.exec(rest);
+		if (match !== null && isSha(match[3]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
+			out += `[${match[0]}](https://github.com/${match[1]}/${match[2]}/commit/${match[3]})`;
+			index += match[0].length;
+			changed = true;
+			continue;
+		}
+		match = BARE_SHA.exec(rest);
+		if (match !== null && repo !== undefined && isSha(match[0]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
+			out += `[${match[0]}](https://github.com/${repo}/commit/${match[0]})`;
+			index += match[0].length;
+			changed = true;
+			continue;
+		}
+		// A code span that is exactly one SHA keeps its code style inside the link.
+		match = CODE_SHA.exec(rest);
+		if (match !== null && free(index, match[0].length, outer)) {
+			const target = match[1] === undefined ? (repo !== undefined && isSha(match[3]) ? repo : undefined) : isSha(match[3]) ? `${match[1]}/${match[2]}` : undefined;
+			if (target !== undefined) {
+				out += `[${match[0]}](https://github.com/${target}/commit/${match[3]})`;
+				index += match[0].length;
+				changed = true;
+				continue;
+			}
 		}
 		out += text[index];
 		index += 1;
