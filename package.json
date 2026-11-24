@@ -1,0 +1,11 @@
+{
+	"name": "omp-refs",
+	"version": "0.1.0",
+	"description": "Clickable GitHub pull-request and Linear ticket references in omp replies",
+	"type": "module",
+	"license": "MIT",
+	"keywords": ["omp", "plugin", "oh-my-pi", "github", "linear", "links"],
+	"omp": {
+		"extensions": ["./refs.ts"]
+	}
+}
