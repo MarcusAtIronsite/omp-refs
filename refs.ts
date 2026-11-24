@@ -116,7 +116,27 @@ const Component: { prototype: { updateContent?: (message: Message, opts?: unknow
 export default function refs(pi: any): void {
 	note(`loaded (component ${Component === undefined ? "unavailable" : "found"})`);
 
+	// Older omp builds (18.10 and earlier) expose neither render hook: references stay plain there.
+	let drawing = "none (this omp build has no render hook; update omp)";
+	let wrapper: ((message: Message, opts?: unknown) => void) | undefined;
+
+	// Another extension that patches the same method at its own session start (omp-stretch does)
+	// replaces this wrapper, so wrap again then. Rewriting is idempotent: an extra layer is harmless.
+	function wrap(): void {
+		const proto = Component?.prototype;
+		if (proto === undefined || proto.updateContent === undefined || proto.updateContent === wrapper) return;
+		const inner = proto.updateContent;
+		wrapper = function (this: unknown, message: Message, opts?: unknown): void {
+			const linked = rewritten(message);
+			if (linked !== message) note("rewrote a message");
+			return inner.call(this, linked, opts);
+		};
+		proto.updateContent = wrapper;
+		drawing = "message component";
+	}
+
 	pi.on("session_start", (_event: unknown, ctx: any) => {
+		wrap();
 		config = readConfig();
 		const contextCwd = ctx?.cwd ?? ctx?.session?.cwd;
 		if (typeof contextCwd === "string" && contextCwd !== "") cwd = contextCwd;
@@ -130,9 +150,6 @@ export default function refs(pi: any): void {
 			forget();
 		}
 	});
-
-	// Older omp builds (18.10 and earlier) expose neither render hook: references stay plain there.
-	let drawing = "none (this omp build has no render hook; update omp)";
 
 	pi.registerCommand("reflinks", {
 		description: "Show the PR/ticket link settings, or preview a rewrite: /reflinks [text]",
@@ -164,15 +181,8 @@ export default function refs(pi: any): void {
 		},
 	});
 
-	const proto = Component?.prototype;
-	if (proto !== undefined && proto.updateContent !== undefined) {
-		drawing = "message component";
-		const original = proto.updateContent;
-		proto.updateContent = function (message: Message, opts?: unknown): void {
-			const linked = rewritten(message);
-			if (linked !== message) note("rewrote a message");
-			return original.call(this, linked, opts);
-		};
+	if (Component?.prototype.updateContent !== undefined) {
+		wrap();
 		return;
 	}
 
