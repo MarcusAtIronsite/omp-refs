@@ -16,6 +16,11 @@ key is not in the configured team list.
 Extensions load when an omp process starts, so sessions already running keep plain references until
 they restart.
 
+Needs omp 18.22 or newer. Checked with 18.22.0, 18.22.1 and 19.1.1. Builds up to 18.10.3 export
+neither `@oh-my-pi/pi-tui/chat/assistant-message` nor `registerAssistantTextRenderer`, so the
+extension loads there, `/reflinks` answers, and replies stay plain. Update omp (`brew upgrade omp`
+for Homebrew).
+
 ## Settings
 
 At `~/.omp/agent/refs.json`:
@@ -39,7 +44,8 @@ one.
 
 ## Commands
 
-- `/reflinks` — resolved repo, workspace, teams, config path and cwd.
+- `/reflinks` — resolved repo, workspace, teams, config path, cwd, and the drawing hook in use
+  (`message component`, `text renderer`, or `none` on a build too old to draw links).
 - `/reflinks #4705 ABC-146` — preview the targets without touching a reply.
 
 ## How it draws
@@ -47,8 +53,8 @@ one.
 Tern renders omp's own message components, so `AssistantMessageComponent.updateContent` is wrapped,
 the way [omp-stretch](https://github.com/materemias/omp-stretch) does. Where that internal module is
 unavailable, the extension falls back to `pi.registerAssistantTextRenderer`, which is what a plain
-terminal uses. If a future omp reshapes those hooks, link rendering stops and `/reflinks` is the
-first thing to check.
+terminal uses. If a future omp reshapes those hooks, link rendering stops and the `drawing:` line of
+`/reflinks` says so.
 
 Set `OMP_REFS_DEBUG=1` to log loads and rewrites to `/tmp/omp-refs-debug.log`.
 

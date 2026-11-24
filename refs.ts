@@ -131,6 +131,9 @@ export default function refs(pi: any): void {
 		}
 	});
 
+	// Older omp builds (18.10 and earlier) expose neither render hook: references stay plain there.
+	let drawing = "none (this omp build has no render hook; update omp)";
+
 	pi.registerCommand("reflinks", {
 		description: "Show the PR/ticket link settings, or preview a rewrite: /reflinks [text]",
 		handler: async (args: string, ctx: any) => {
@@ -154,6 +157,7 @@ export default function refs(pi: any): void {
 					`teams: ${settings.teams.length === 0 ? "(unset)" : settings.teams.join(", ")}`,
 					`config: ${CONFIG_PATH}`,
 					`cwd: ${cwd}`,
+					`drawing: ${drawing}`,
 				].join("\n"),
 				"info",
 			);
@@ -162,6 +166,7 @@ export default function refs(pi: any): void {
 
 	const proto = Component?.prototype;
 	if (proto !== undefined && proto.updateContent !== undefined) {
+		drawing = "message component";
 		const original = proto.updateContent;
 		proto.updateContent = function (message: Message, opts?: unknown): void {
 			const linked = rewritten(message);
@@ -177,6 +182,7 @@ export default function refs(pi: any): void {
 		note("no renderer hook: links stay plain");
 		return;
 	}
+	drawing = "text renderer";
 	pi.registerAssistantTextRenderer(({ text, streaming }: { text: string; streaming?: boolean }) => {
 		if (streaming === true) return undefined;
 		const linked = linkify(text, options());
