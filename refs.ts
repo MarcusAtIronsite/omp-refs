@@ -171,7 +171,12 @@ export default function refs(pi: any): void {
 		return;
 	}
 
-	// A plain terminal draws replies through omp's text renderers instead.
+	// A plain terminal draws replies through omp's text renderers instead. Older omp builds have
+	// neither hook: the extension still loads and /reflinks still works, but nothing is drawn.
+	if (typeof pi.registerAssistantTextRenderer !== "function") {
+		note("no renderer hook: links stay plain");
+		return;
+	}
 	pi.registerAssistantTextRenderer(({ text, streaming }: { text: string; streaming?: boolean }) => {
 		if (streaming === true) return undefined;
 		const linked = linkify(text, options());
