@@ -9,24 +9,26 @@
 // registered when that module is unavailable.
 //
 // Settings live in ~/.omp/agent/refs.json:
-//   { "repo": "owner/repo", "linearWorkspace": "acme", "linearTeams": ["ABC", "OPS"] }
+//   { "repo": "owner/repo", "linearWorkspace": "acme", "linearTeams": ["ABC", "OPS"],
+//     "icons": { "github": "⎇", "linear": "⚑", "commit": "●" } }
 // `repo` defaults to the `origin` remote of the session's directory. Without a Linear workspace and
 // team list, ticket references stay plain; without a GitHub repo, bare `#123` stays plain.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { linkify } from "./refs-core.js";
+import { iconsOf, linkify } from "./refs-core.js";
 
 type Config = {
 	repo?: string;
 	linearWorkspace?: string;
 	linearTeams?: string[];
+	icons?: { github?: string; linear?: string; commit?: string };
 };
 
 type TextBlock = { type: string; text?: string };
 type Message = { content?: unknown };
-type Options = { repo: string | undefined; workspace: string; teams: string[] };
+type Options = { repo: string | undefined; workspace: string; teams: string[]; icons: Config["icons"] };
 
 const CONFIG_PATH = join(homedir(), ".omp", "agent", "refs.json");
 const DEBUG = process.env.OMP_REFS_DEBUG !== undefined ? "/tmp/omp-refs-debug.log" : undefined;
@@ -77,6 +79,7 @@ function options(): Options {
 			repo: repoOf(cwd),
 			workspace: config.linearWorkspace ?? "",
 			teams: config.linearTeams ?? [],
+			icons: config.icons,
 		};
 	}
 	return cached;
@@ -162,16 +165,18 @@ export default function refs(pi: any): void {
 					return;
 				}
 				const pairs: string[] = [];
-				for (const match of linked.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) pairs.push(`${match[1]} → ${match[2]}`);
+				for (const match of linked.matchAll(/\[`?([^\]`]+)`?\]\(([^)]+)\)/g)) pairs.push(`${match[1]} → ${match[2]}`);
 				ctx.ui.notify(pairs.join("\n"), "info");
 				return;
 			}
 			const settings = options();
+			const shown = iconsOf(settings);
 			ctx.ui.notify(
 				[
 					`repo: ${settings.repo ?? "(none — #123 stays plain)"}`,
 					`linear: ${settings.workspace === "" ? "(unset — tickets stay plain)" : settings.workspace}`,
 					`teams: ${settings.teams.length === 0 ? "(unset)" : settings.teams.join(", ")}`,
+					`icons: github ${shown.github || "(none)"}, linear ${shown.linear || "(none)"}, commit ${shown.commit || "(none)"}`,
 					`config: ${CONFIG_PATH}`,
 					`cwd: ${cwd}`,
 					`drawing: ${drawing}`,

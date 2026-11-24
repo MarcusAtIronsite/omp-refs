@@ -3,8 +3,10 @@
 Clickable GitHub pull-request and Linear ticket references in [omp](https://omp.sh) replies.
 
 `#4705`, `owner/repo#7` and `ABC-146` are drawn as links to the PR, issue or ticket, so a reference
-opens in the browser instead of being copied into one. The reply's stored text never changes: this
+opens in the browser instead of being copied into one. Each is a link whose text is a code span with
+an icon, `` [`⎇ #4705`](…) ``, so it draws as a tag. The reply's stored text never changes: this
 rewrites only what the transcript draws, so the session file, `-p` output and copy-paste stay plain.
+Copying a drawn reference includes its icon.
 
 Commit SHAs link too: 7 to 40 lowercase hex characters containing both a digit and a letter
 (`f328eb4`), bare or as `owner/repo@f328eb4`, and a code span that is exactly one SHA
@@ -34,7 +36,8 @@ At `~/.omp/agent/refs.json`:
 {
   "repo": "acme/widgets",
   "linearWorkspace": "acme",
-  "linearTeams": ["ABC", "OPS"]
+  "linearTeams": ["ABC", "OPS"],
+  "icons": { "github": "⎇", "linear": "⚑", "commit": "●" }
 }
 ```
 
@@ -43,13 +46,16 @@ At `~/.omp/agent/refs.json`:
 - `linearWorkspace` — the `linear.app/<workspace>` slug. Unset leaves tickets plain.
 - `linearTeams` — the team keys worth linking, so `UTF-8` and `SHA-256` never become tickets. Unset
   leaves tickets plain.
+- `icons` — the symbol at the left of each tag, per kind: `github` (issues and PRs, default `⎇`),
+  `linear` (tickets, default `⚑`), `commit` (SHAs, default `●`). An empty string drops the icon;
+  backticks and line breaks are removed.
 
 A bare `#123` links to `/issues/123`, which GitHub redirects to the pull request when that number is
 one.
 
 ## Commands
 
-- `/reflinks` — resolved repo, workspace, teams, config path, cwd, and the drawing hook in use
+- `/reflinks` — resolved repo, workspace, teams, icons, config path, cwd, and the drawing hook in use
   (`message component`, `text renderer`, or `none` on a build too old to draw links).
 - `/reflinks #4705 ABC-146` — preview the targets without touching a reply.
 

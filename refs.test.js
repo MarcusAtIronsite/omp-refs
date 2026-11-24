@@ -1,9 +1,16 @@
 // Tests for refs-core.js. No framework: run with the commands in README.md.
 const opts = { repo: "acme/widgets", teams: ["ABC", "OPS"], workspace: "acme" };
+const GH = "\u2387";
+const LIN = "\u2691";
+const DOT = "\u25cf";
 let failed = 0;
 
-function expect(name, input, wanted) {
-	const got = linkify(input, opts);
+const issue = (label, url) => "[`" + GH + " " + label + "`](" + url + ")";
+const ticket = key => "[`" + LIN + " " + key + "`](https://linear.app/acme/issue/" + key + ")";
+const commit = (label, repo, sha) => "[`" + DOT + " " + label + "`](https://github.com/" + repo + "/commit/" + sha + ")";
+
+function expect(name, input, wanted, options = opts) {
+	const got = linkify(input, options);
 	if (got !== wanted) {
 		failed += 1;
 		print("FAIL " + name);
@@ -13,62 +20,64 @@ function expect(name, input, wanted) {
 	}
 }
 
-expect("both refs", "Fixes #4705 and ABC-146.", "Fixes [#4705](https://github.com/acme/widgets/issues/4705) and [ABC-146](https://linear.app/acme/issue/ABC-146).");
+const widgets = n => "https://github.com/acme/widgets/issues/" + n;
+
+expect("both refs", "Fixes #4705 and ABC-146.", "Fixes " + issue("#4705", widgets(4705)) + " and " + ticket("ABC-146") + ".");
 expect("inline code", "run `#4705` and `ABC-146`", undefined);
 expect("fence", "```\n#4705 ABC-146\n```", undefined);
 expect("mermaid fence", "```mermaid\nA --> #4705\n```\nok", undefined);
 expect("bare url", "see https://github.com/acme/widgets/pull/4705", undefined);
 expect("linear url", "see https://linear.app/acme/issue/ABC-146", undefined);
 expect("existing link", "see [PR #4705](https://github.com/acme/widgets/pull/4705)", undefined);
-expect("owner/repo ref", "in acme/widgets#7 now", "in [acme/widgets#7](https://github.com/acme/widgets/issues/7) now");
+expect("owner/repo ref", "in acme/widgets#7 now", "in " + issue("acme/widgets#7", widgets(7)) + " now");
 expect("non-team key", "UTF-8, SHA-256, ISO-8601, GPT-5", undefined);
 expect("single digit", "option #1 and #9", undefined);
 expect("bracket ref", "see [#4705] in the list", undefined);
-expect("ticket only", "ABC-146", "[ABC-146](https://linear.app/acme/issue/ABC-146)");
+expect("ticket only", "ABC-146", ticket("ABC-146"));
 expect("hyphen before ticket", "asdf-ABC-146", undefined);
 expect("plain prose", "Nothing to link here.", undefined);
-expect("idempotent", "[#4705](https://github.com/acme/widgets/issues/4705)", undefined);
+expect("idempotent", issue("#4705", widgets(4705)), undefined);
 const once = linkify("see #4705 and ABC-146", opts);
 expect("second pass", once, undefined);
 
 // No repo configured: bare refs stay literal, tickets still link.
-const noRepo = linkify("see #4705 and ABC-146", { teams: ["ABC"], workspace: "acme" });
-if (noRepo !== "see #4705 and [ABC-146](https://linear.app/acme/issue/ABC-146)") {
-	failed += 1;
-	print("FAIL no repo: " + JSON.stringify(noRepo));
-}
+expect("no repo", "see #4705 and ABC-146", "see #4705 and " + ticket("ABC-146"), { teams: ["ABC"], workspace: "acme" });
 
 // No Linear settings: tickets stay literal.
-const noLinear = linkify("#4705 and ABC-146", { repo: "acme/widgets", teams: [], workspace: "" });
-if (noLinear !== "[#4705](https://github.com/acme/widgets/issues/4705) and ABC-146") {
-	failed += 1;
-	print("FAIL no linear: " + JSON.stringify(noLinear));
-}
+expect("no linear", "#4705 and ABC-146", issue("#4705", widgets(4705)) + " and ABC-146", { repo: "acme/widgets", teams: [], workspace: "" });
 
+// Commit SHAs.
 const SHA = "f328eb49075cbba210aeb84c78caf3700c35687a";
-const commit = (text, repo) => `[${text}](https://github.com/${repo}/commit/${text.replace(/`/g, "").replace(/^.*@/, "")})`;
-expect("bare sha", "fixed in f328eb4.", "fixed in " + commit("f328eb4", "acme/widgets") + ".");
-expect("full sha", "at " + SHA + " now", "at " + commit(SHA, "acme/widgets") + " now");
-expect("backticked sha", "see `f328eb4` there", "see [`f328eb4`](https://github.com/acme/widgets/commit/f328eb4) there");
-expect("repo sha", "in acme/other@f328eb4 too", "in [acme/other@f328eb4](https://github.com/acme/other/commit/f328eb4) too");
-expect("backticked repo sha", "`acme/other@f328eb4`", "[`acme/other@f328eb4`](https://github.com/acme/other/commit/f328eb4)");
+expect("bare sha", "fixed in f328eb4.", "fixed in " + commit("f328eb4", "acme/widgets", "f328eb4") + ".");
+expect("full sha", "at " + SHA + " now", "at " + commit(SHA, "acme/widgets", SHA) + " now");
+expect("backticked sha", "see `f328eb4` there", "see " + commit("f328eb4", "acme/widgets", "f328eb4") + " there");
+expect("repo sha", "in acme/other@f328eb4 too", "in " + commit("acme/other@f328eb4", "acme/other", "f328eb4") + " too");
+expect("backticked repo sha", "`acme/other@f328eb4`", commit("acme/other@f328eb4", "acme/other", "f328eb4"));
 expect("words and numbers", "defaced decade 1234567 deadbeef 20250101", undefined);
 expect("backticked number", "`1234567` and `deadbeef`", undefined);
 expect("code span with more", "run `git show f328eb4`", undefined);
 expect("sha in fence", "```\nf328eb4\n```", undefined);
 expect("sha in url", "https://github.com/acme/widgets/commit/f328eb4", undefined);
-expect("sha in link", "[`f328eb4`](https://github.com/acme/widgets/commit/f328eb4)", undefined);
+expect("sha in link", commit("f328eb4", "acme/widgets", "f328eb4"), undefined);
 expect("sha in filename", "src/f328eb4.ts and f328eb4-x and a#f328eb4", undefined);
 expect("uuid", "550e8400-e29b-41d4-a716-446655440000", undefined);
 expect("too short or long", "f328eb and " + SHA + "0", undefined);
-const shaOnce = linkify("see f328eb4 and `f328eb4`", opts);
-expect("sha second pass", shaOnce, undefined);
+expect("sha second pass", linkify("see f328eb4 and `f328eb4`", opts), undefined);
 
 // No repo: a bare SHA has nowhere to point, a repo-qualified one still links.
-const noRepoSha = linkify("f328eb4, `f328eb4` and acme/other@f328eb4", { teams: [], workspace: "" });
-if (noRepoSha !== "f328eb4, `f328eb4` and [acme/other@f328eb4](https://github.com/acme/other/commit/f328eb4)") {
-	failed += 1;
-	print("FAIL no repo sha: " + JSON.stringify(noRepoSha));
-}
+expect(
+	"no repo sha",
+	"f328eb4, `f328eb4` and acme/other@f328eb4",
+	"f328eb4, `f328eb4` and " + commit("acme/other@f328eb4", "acme/other", "f328eb4"),
+	{ teams: [], workspace: "" },
+);
+
+// Icons: configurable per kind; an empty string drops the icon, backticks cannot break the chip.
+const custom = { ...opts, icons: { github: "PR", linear: "", commit: "a`b" } };
+expect("custom github icon", "#4705", "[`PR #4705`](" + widgets(4705) + ")", custom);
+expect("empty linear icon", "ABC-146", "[`ABC-146`](https://linear.app/acme/issue/ABC-146)", custom);
+expect("backtick icon", "f328eb4", "[`ab f328eb4`](https://github.com/acme/widgets/commit/f328eb4)", custom);
+expect("non-string icon falls back", "ABC-146", ticket("ABC-146"), { ...opts, icons: { linear: 5 } });
+expect("partial icons keep defaults", "#4705 f328eb4", issue("#4705", widgets(4705)) + " [`x f328eb4`](https://github.com/acme/widgets/commit/f328eb4)", { ...opts, icons: { commit: "x" } });
 
 print(failed === 0 ? "all tests passed" : failed + " failed");

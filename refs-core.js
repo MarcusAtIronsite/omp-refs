@@ -38,6 +38,21 @@ const CODE_SHA = new RegExp(`^\`(?:([A-Za-z0-9][A-Za-z0-9._-]*)/([A-Za-z0-9._-]+
 const SHA_BEFORE = /[A-Za-z0-9_/.#@-]/;
 const isSha = text => /\d/.test(text) && /[a-f]/.test(text);
 
+export const DEFAULT_ICONS = { github: "\u2387", linear: "\u2691", commit: "\u25cf" };
+
+/** The icon per kind: defaults, overridden by `options.icons`. An empty string drops the icon; backticks cannot sit in a code span. */
+export function iconsOf(options) {
+	const given = (options && options.icons) || {};
+	const icons = {};
+	for (const kind of Object.keys(DEFAULT_ICONS)) {
+		icons[kind] = typeof given[kind] === "string" ? given[kind].replace(/[`\r\n]/g, "").trim() : DEFAULT_ICONS[kind];
+	}
+	return icons;
+}
+
+/** A link whose text is a code span, so it draws as a tag: `[`icon label`](url)`. */
+const chip = (icon, label, url) => `[\`${icon === "" ? "" : `${icon} `}${label}\`](${url})`;
+
 /**
  * Rewrites `owner/repo#12`, `#12`, `ABC-12` and commit SHAs into markdown links.
  * `#12` and a bare SHA need a GitHub repo (owner/repo); `ABC-12` needs its key in `teams`.
@@ -49,6 +64,7 @@ export function linkify(text, options) {
 	const repo = options && options.repo;
 	const workspace = (options && options.workspace) || "linear.app";
 	const teams = new Set(((options && options.teams) || []).map(key => String(key).toUpperCase()));
+	const icons = iconsOf(options);
 	const blocked = maskOf(text, true);
 	const outer = maskOf(text, false);
 	const free = (start, length, mask = blocked) => {
@@ -63,35 +79,35 @@ export function linkify(text, options) {
 		const before = index > 0 ? text[index - 1] : "";
 		let match = OWNER_REPO_REF.exec(rest);
 		if (match !== null && free(index, match[0].length) && !WORDISH.test(before)) {
-			out += `[${match[0]}](https://github.com/${match[1]}/${match[2]}/issues/${match[3]})`;
+			out += chip(icons.github, match[0], `https://github.com/${match[1]}/${match[2]}/issues/${match[3]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = BARE_REF.exec(rest);
 		if (match !== null && repo !== undefined && free(index, match[0].length) && !WORDISH.test(before)) {
-			out += `[#${match[1]}](https://github.com/${repo}/issues/${match[1]})`;
+			out += chip(icons.github, match[0], `https://github.com/${repo}/issues/${match[1]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = TICKET.exec(rest);
 		if (match !== null && teams.has(match[1]) && free(index, match[0].length) && !/[A-Za-z0-9_-]/.test(before)) {
-			out += `[${match[0]}](https://linear.app/${workspace}/issue/${match[0]})`;
+			out += chip(icons.linear, match[0], `https://linear.app/${workspace}/issue/${match[0]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = REPO_SHA.exec(rest);
 		if (match !== null && isSha(match[3]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
-			out += `[${match[0]}](https://github.com/${match[1]}/${match[2]}/commit/${match[3]})`;
+			out += chip(icons.commit, match[0], `https://github.com/${match[1]}/${match[2]}/commit/${match[3]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = BARE_SHA.exec(rest);
 		if (match !== null && repo !== undefined && isSha(match[0]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
-			out += `[${match[0]}](https://github.com/${repo}/commit/${match[0]})`;
+			out += chip(icons.commit, match[0], `https://github.com/${repo}/commit/${match[0]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
@@ -101,7 +117,7 @@ export function linkify(text, options) {
 		if (match !== null && free(index, match[0].length, outer)) {
 			const target = match[1] === undefined ? (repo !== undefined && isSha(match[3]) ? repo : undefined) : isSha(match[3]) ? `${match[1]}/${match[2]}` : undefined;
 			if (target !== undefined) {
-				out += `[${match[0]}](https://github.com/${target}/commit/${match[3]})`;
+				out += chip(icons.commit, match[0].slice(1, -1), `https://github.com/${target}/commit/${match[3]}`);
 				index += match[0].length;
 				changed = true;
 				continue;
