@@ -28,7 +28,7 @@ expect("fence", "```\n#4705 ABC-146\n```", undefined);
 expect("mermaid fence", "```mermaid\nA --> #4705\n```\nok", undefined);
 expect("bare url", "see https://github.com/acme/widgets/pull/4705", undefined);
 expect("linear url", "see https://linear.app/acme/issue/ABC-146", undefined);
-expect("existing link", "see [PR #4705](https://github.com/acme/widgets/pull/4705)", undefined);
+expect("existing link", "see [the fix PR](https://github.com/acme/widgets/pull/4705)", undefined);
 expect("owner/repo ref", "in acme/widgets#7 now", "in " + issue("acme/widgets#7", widgets(7)) + " now");
 expect("non-team key", "UTF-8, SHA-256, ISO-8601, GPT-5", undefined);
 expect("single digit", "option #1 and #9", undefined);
@@ -88,5 +88,23 @@ expect("streaming stretch", "ok #4705 {{short #4705|lo", "ok " + issue("#4705", 
 expect("backticked sha in stretch", "{{see `f328eb4`|more}} then #4705", "{{see `f328eb4`|more}}" + after);
 expect("braces in code are not stretches", "`{{` then #4705", "`{{`" + after);
 expect("braces in fence", "```\n{{\n```\n#4705", "```\n{{\n```\n" + issue("#4705", widgets(4705)));
+
+// Links the model wrote itself: chips when the text is exactly the reference its URL names.
+const pull = "https://github.com/acme/widgets/pull/4329";
+expect("adopt linear", "see [ABC-146](https://linear.app/other/issue/ABC-146) now", "see " + "[`" + LIN + " ABC-146`](https://linear.app/other/issue/ABC-146#omp-refs)" + " now");
+expect("adopt linear with slug", "[ABC-146](https://linear.app/acme/issue/ABC-146/fix-the-thing)", "[`" + LIN + " ABC-146`](https://linear.app/acme/issue/ABC-146/fix-the-thing#omp-refs)");
+expect("adopt bold-wrapped", "**[ABC-146](https://linear.app/acme/issue/ABC-146)** is open", "**" + ticket("ABC-146") + "** is open");
+expect("adopt issue", "[#4329](" + pull + ")", "[`" + GH + " #4329`](" + pull + "#omp-refs)");
+expect("adopt PR prefix", "[PR #4329](" + pull + ")", "[`" + GH + " PR #4329`](" + pull + "#omp-refs)");
+expect("adopt owner/repo", "[acme/widgets#4329](https://github.com/acme/widgets/issues/4329)", "[`" + GH + " acme/widgets#4329`](https://github.com/acme/widgets/issues/4329#omp-refs)");
+expect("adopt commit prefix", "[f328eb4](https://github.com/acme/widgets/commit/" + SHA + ")", "[`" + DOT + " f328eb4`](https://github.com/acme/widgets/commit/" + SHA + "#omp-refs)");
+expect("descriptive link text", "[the PR](" + pull + ") and [fix ABC-146](https://linear.app/acme/issue/ABC-146)", undefined);
+expect("text names another number", "[#4330](" + pull + ")", undefined);
+expect("adopt in code", "`[ABC-146](https://linear.app/acme/issue/ABC-146)`", undefined);
+expect("adopt in stretch", "{{see [ABC-146](https://linear.app/acme/issue/ABC-146)|more}}", undefined);
+expect("adopt image", "![ABC-146](https://linear.app/acme/issue/ABC-146)", undefined);
+expect("adopt other host", "[ABC-146](https://example.com/issue/ABC-146)", undefined);
+expect("adopt link with fragment", "[#4329](" + pull + "#issuecomment-1)", undefined);
+expect("adopt second pass", linkify("[ABC-146](https://linear.app/acme/issue/ABC-146)", opts), undefined);
 
 print(failed === 0 ? "all tests passed" : failed + " failed");

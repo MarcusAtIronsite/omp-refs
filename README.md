@@ -13,8 +13,13 @@ Commit SHAs link too: 7 to 40 lowercase hex characters containing both a digit a
 (`` `f328eb4` ``), which keeps its code style inside the link. A bare SHA needs the repo, and an
 all-digit SHA stays plain. Nothing is checked offline, so a SHA from another repo links to a 404.
 
-Left alone: fenced blocks, other inline code, existing markdown links, bare URLs, and any `KEY-12`
-whose key is not in the configured team list.
+Links the model writes itself become chips too when the link text is exactly the reference its URL
+names: `[SW-3152](https://linear.app/…/issue/SW-3152)`, `[#4329](…/pull/4329)`, `[PR #4329](…)`, or a
+SHA on a commit URL. A link with descriptive text, one with a query or fragment, an image, and one in
+code keep their form.
+
+Left alone: fenced blocks, other inline code, other markdown links, bare URLs, and any `KEY-12` whose
+key is not in the configured team list.
 
 ## Install
 

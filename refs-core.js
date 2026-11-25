@@ -89,6 +89,50 @@ export const MARKER = "omp-refs";
 /** A link whose text is a code span, so it draws as a tag: `[`icon label`](url#omp-refs)`. */
 const chip = (icon, label, url) => `[\`${icon === "" ? "" : `${icon} `}${label}\`](${url}#${MARKER})`;
 
+const MD_LINK = /\[([^\]\n`]+)\]\((https:\/\/[^)\s#?]+)\)/g;
+const LINEAR_URL = /^https:\/\/linear\.app\/[^/]+\/issue\/([A-Z][A-Z0-9]{1,5}-[1-9]\d{0,5})(?:\/[^/]*)?$/;
+const ISSUE_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/(?:issues|pull)\/([1-9]\d{0,5})$/;
+const COMMIT_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/commit\/([0-9a-f]{7,40})$/;
+const ISSUE_TEXT = /^(?:(?:PR|issue)\s+)?(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+)?#([1-9]\d{0,5})$/i;
+
+/**
+ * A link the model wrote itself, `[SW-3152](https://linear.app/…/issue/SW-3152)`, is drawn with its URL
+ * printed after it outside Tern, and as a plain link in Tern. When its text is exactly the reference
+ * its URL names (a Linear key, `#12` or `PR #12` for an issue or PR URL, a SHA for a commit URL), it
+ * becomes a chip like the references omp-refs finds itself. Descriptive link text is left alone.
+ * Returns undefined when nothing changed.
+ */
+function adoptLinks(text, icons) {
+	if (!text.includes("](https://")) return undefined;
+	const skip = new Uint8Array(text.length);
+	for (const pattern of [PROTECTED[0], PROTECTED[1], INLINE_CODE]) {
+		pattern.lastIndex = 0;
+		let found;
+		while ((found = pattern.exec(text)) !== null) {
+			skip.fill(1, found.index, found.index + found[0].length);
+			if (found[0].length === 0) pattern.lastIndex += 1;
+		}
+	}
+	markStretches(text, skip);
+	let out = "";
+	let last = 0;
+	MD_LINK.lastIndex = 0;
+	let match;
+	while ((match = MD_LINK.exec(text)) !== null) {
+		const [whole, label, url] = match;
+		if (skip[match.index] === 1 || (match.index > 0 && text[match.index - 1] === "!")) continue;
+		let icon;
+		let reference = LINEAR_URL.exec(url);
+		if (reference !== null && label === reference[1]) icon = icons.linear;
+		else if ((reference = ISSUE_URL.exec(url)) !== null && (ISSUE_TEXT.exec(label) || [])[1] === reference[1]) icon = icons.github;
+		else if ((reference = COMMIT_URL.exec(url)) !== null && /^[0-9a-f]{7,40}$/.test(label) && isSha(label) && reference[1].startsWith(label)) icon = icons.commit;
+		if (icon === undefined) continue;
+		out += text.slice(last, match.index) + chip(icon, label, url);
+		last = match.index + whole.length;
+	}
+	return last === 0 ? undefined : out + text.slice(last);
+}
+
 /**
  * Rewrites `owner/repo#12`, `#12`, `ABC-12` and commit SHAs into markdown links.
  * `#12` and a bare SHA need a GitHub repo (owner/repo); `ABC-12` needs its key in `teams`.
@@ -101,6 +145,8 @@ export function linkify(text, options) {
 	const workspace = (options && options.workspace) || "linear.app";
 	const teams = new Set(((options && options.teams) || []).map(key => String(key).toUpperCase()));
 	const icons = iconsOf(options);
+	const adopted = adoptLinks(text, icons);
+	if (adopted !== undefined) text = adopted;
 	const blocked = maskOf(text, true);
 	const outer = maskOf(text, false);
 	const free = (start, length, mask = blocked) => {
@@ -109,7 +155,7 @@ export function linkify(text, options) {
 	};
 	let out = "";
 	let index = 0;
-	let changed = false;
+	let changed = adopted !== undefined;
 	while (index < text.length) {
 		const rest = text.slice(index);
 		const before = index > 0 ? text[index - 1] : "";
