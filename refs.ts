@@ -10,11 +10,12 @@
 //
 // Settings live in ~/.omp/agent/refs.json, one object per provider under `providers`:
 //   { "providers": {
-//       "github": { "repo": "owner/repo", "icon": "⎇", "color": "#a371f7",
+//       "github": { "repoOverride": "owner/repo", "icon": "⎇", "color": "#a371f7",
 //                   "commits": { "icon": "●", "color": "#8b949e" } },
 //       "linear": { "workspace": "acme", "teams": ["ABC", "OPS"], "icon": "⚑", "color": "#5e6ad2" } } }
-// Every provider takes `enabled`, `icon` and `color`; `repo` is GitHub's, `workspace` and `teams`
-// Linear's. `repo` defaults to the `origin` remote of the session's directory. Without a Linear
+// Every provider takes `enabled`, `icon` and `color`; `repoOverride` is GitHub's, `workspace` and
+// `teams` Linear's. Bare `#123` uses the `origin` remote of the session's directory (the nearest
+// repository above it) unless `repoOverride` names a repository. Without a Linear
 // workspace and team list, ticket references stay plain; without a GitHub repo, bare `#123` stays plain.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
@@ -27,7 +28,7 @@ type Common = { enabled?: boolean; icon?: string; color?: string };
 
 type Config = {
 	providers?: {
-		github?: Common & { repo?: string; commits?: Common };
+		github?: Common & { repoOverride?: string; commits?: Common };
 		linear?: Common & { workspace?: string; teams?: string[] };
 	};
 };
@@ -75,9 +76,9 @@ let config: Config = readConfig();
 let cwd = process.cwd();
 let cached: Options | undefined;
 
-/** `owner/repo` for a directory's origin remote, or the configured repo. */
+/** `owner/repo` for a directory's origin remote (git searches the parent folders), or the configured override. */
 function repoOf(directory: string): string | undefined {
-	const configured = config.providers?.github?.repo;
+	const configured = config.providers?.github?.repoOverride;
 	if (typeof configured === "string" && configured !== "") return configured;
 	if (repos.has(directory)) return repos.get(directory);
 	let repo: string | undefined;

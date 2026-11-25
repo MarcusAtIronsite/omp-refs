@@ -23,7 +23,7 @@ key is not in the configured team list.
 
 ## Install
 
-    omp plugin link ~/Projects/omp-refs
+    omp plugin link path/to/omp-refs
 
 Extensions load when an omp process starts, so sessions already running keep plain references until
 they restart.
@@ -41,7 +41,7 @@ At `~/.omp/agent/refs.json`, one object per provider under `providers`:
 {
   "providers": {
     "github": {
-      "repo": "acme/widgets",
+      "repoOverride": "acme/widgets",
       "icon": "⎇",
       "color": "#a371f7",
       "commits": { "icon": "●", "color": "#8b949e" }
@@ -69,9 +69,11 @@ Every key is optional. Fields every provider takes:
 
 `github` (issues, pull requests and commits):
 
-- `repo` — used for bare `#123` and bare SHAs. Defaults to the `origin` remote of the session's
-  directory; without one, bare references stay plain. `owner/repo#123` and `owner/repo@sha` always
-  link on their own.
+- `repoOverride` — the repository for bare `#123` and bare SHAs, when the one found automatically is
+  wrong or missing. By default omp-refs uses the `origin` remote of the session's directory; git
+  looks in the parent folders too, so any directory inside a clone works. Outside a clone, and
+  without an override, bare references stay plain. `owner/repo#123` and `owner/repo@sha` always link
+  on their own.
 - `commits` — the commit SHAs, with the same `enabled`, `icon` and `color`. Turning `github` off turns
   commits off too.
 
@@ -82,7 +84,7 @@ Every key is optional. Fields every provider takes:
   tickets plain.
 
 The earlier flat keys (`repo`, `linearWorkspace`, `linearTeams`, `icons`, `colors`) are no longer
-read; move them under `providers`.
+read; move them under `providers` (`repo` is now `github.repoOverride`).
 
 A bare `#123` links to `/issues/123`, which GitHub redirects to the pull request when that number is
 one.
@@ -115,7 +117,7 @@ Tern draws replies as HTML and lets a plugin add CSS. `tern-plugin/` turns the l
 into tinted chips with a border, rounded corners and the GitHub or Linear logo (a commit gets the
 git-commit mark):
 
-    tern plugin link ~/Projects/omp-refs/tern-plugin
+    tern plugin link path/to/omp-refs/tern-plugin
 
 Every link omp-refs writes ends in the fragment `#omp-refs`, which GitHub and Linear ignore; the CSS
 keys on it, so ordinary links keep their look. With the plugin linked, omp-refs drops the Unicode
@@ -143,7 +145,7 @@ the URLs show again and nothing breaks.
 
 `refs-core.js` is pure JavaScript, so any engine can run its tests:
 
-    cd ~/Projects/omp-refs
+    cd path/to/omp-refs
     sed 's/^export //' refs-core.js > /tmp/core.js
     cat /tmp/core.js refs.test.js > /tmp/run.js
     /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc /tmp/run.js
