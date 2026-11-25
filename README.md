@@ -2,6 +2,14 @@
 
 Clickable GitHub pull-request and Linear ticket references in [omp](https://omp.sh) replies.
 
+In Tern, each reference is a tinted chip with the GitHub or Linear logo:
+
+![A reply in Tern: an issue, a Linear ticket, a commit and an issue in another repository drawn as bordered chips with logos](img/tern.png)
+
+In a plain terminal the same references are underlined links with a symbol, and the printed URL is hidden:
+
+![The same reply in a plain terminal: references drawn as underlined links with the symbols ⎇, ⚑ and ●](img/omp.png)
+
 `#4705`, `owner/repo#7` and `ABC-146` are drawn as links to the PR, issue or ticket, so a reference
 opens in the browser instead of being copied into one. Each is a link whose text is a code span with
 an icon, `` [`⎇ #4705`](…) ``, so it draws as a tag. The reply's stored text never changes: this
