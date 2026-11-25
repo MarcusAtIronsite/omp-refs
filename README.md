@@ -68,8 +68,9 @@ terminal uses. If a future omp reshapes those hooks, link rendering stops and th
 `/reflinks` says so.
 
 The wrapper is installed at load and again at every session start, because an extension that patches
-the same method at its own session start (omp-stretch does) replaces it. Inside a stretch's clickable
-text a reference cannot be a second link; outside it, references link as usual.
+the same method at its own session start (omp-stretch does) replaces it. A stretch (`{{short|long}}`)
+is itself a link and a link cannot hold another, so references inside one stay plain, nested or still
+streaming; references outside it link as usual.
 
 Set `OMP_REFS_DEBUG=1` to log loads and rewrites to `/tmp/omp-refs-debug.log`.
 

@@ -80,4 +80,13 @@ expect("backtick icon", "f328eb4", "[`ab f328eb4`](https://github.com/acme/widge
 expect("non-string icon falls back", "ABC-146", ticket("ABC-146"), { ...opts, icons: { linear: 5 } });
 expect("partial icons keep defaults", "#4705 f328eb4", issue("#4705", widgets(4705)) + " [`x f328eb4`](https://github.com/acme/widgets/commit/f328eb4#omp-refs)", { ...opts, icons: { commit: "x" } });
 
+// Stretchtext is a link itself, so references inside it stay plain; text around it links.
+const after = " then " + issue("#4705", widgets(4705));
+expect("inside stretch", "{{short #4705 ABC-146|long f328eb4}} then #4705", "{{short #4705 ABC-146|long f328eb4}}" + after);
+expect("nested stretch", "{{a {{b #4705|c}} tail #4705|d}} then #4705", "{{a {{b #4705|c}} tail #4705|d}}" + after);
+expect("streaming stretch", "ok #4705 {{short #4705|lo", "ok " + issue("#4705", widgets(4705)) + " {{short #4705|lo");
+expect("backticked sha in stretch", "{{see `f328eb4`|more}} then #4705", "{{see `f328eb4`|more}}" + after);
+expect("braces in code are not stretches", "`{{` then #4705", "`{{`" + after);
+expect("braces in fence", "```\n{{\n```\n#4705", "```\n{{\n```\n" + issue("#4705", widgets(4705)));
+
 print(failed === 0 ? "all tests passed" : failed + " failed");

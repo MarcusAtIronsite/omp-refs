@@ -23,7 +23,40 @@ function maskOf(text, withInlineCode) {
 			if (match[0].length === 0) pattern.lastIndex += 1;
 		}
 	}
+	markStretches(text, blocked);
 	return blocked;
+}
+
+/**
+ * Stretchtext (`{{short|long}}`, nestable, possibly still streaming and unclosed) is itself drawn as a
+ * link, and a link cannot hold another: a reference inside would draw as raw brackets and a URL.
+ * The whole span stays plain. `{{` and `}}` inside code are not stretch markup.
+ */
+function markStretches(text, blocked) {
+	const code = new Uint8Array(text.length);
+	for (const pattern of [PROTECTED[0], PROTECTED[1], INLINE_CODE]) {
+		pattern.lastIndex = 0;
+		let match;
+		while ((match = pattern.exec(text)) !== null) {
+			code.fill(1, match.index, match.index + match[0].length);
+			if (match[0].length === 0) pattern.lastIndex += 1;
+		}
+	}
+	let depth = 0;
+	let start = 0;
+	for (let i = 0; i < text.length - 1; i += 1) {
+		if (code[i] === 1) continue;
+		if (text[i] === "{" && text[i + 1] === "{") {
+			if (depth === 0) start = i;
+			depth += 1;
+			i += 1;
+		} else if (text[i] === "}" && text[i + 1] === "}" && depth > 0) {
+			depth -= 1;
+			i += 1;
+			if (depth === 0) blocked.fill(1, start, i + 1);
+		}
+	}
+	if (depth > 0) blocked.fill(1, start, text.length);
 }
 
 const OWNER_REPO_REF = /^([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9._-]+)#([1-9]\d{0,5})(?!\d)/;
