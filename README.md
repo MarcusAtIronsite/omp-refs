@@ -73,6 +73,22 @@ text a reference cannot be a second link; outside it, references link as usual.
 
 Set `OMP_REFS_DEBUG=1` to log loads and rewrites to `/tmp/omp-refs-debug.log`.
 
+## Tern chips
+
+Tern draws replies as HTML and lets a plugin add CSS. `tern-plugin/` turns the links omp-refs writes
+into tinted chips with a border, rounded corners and the GitHub or Linear logo (a commit gets the
+git-commit mark):
+
+    tern plugin link ~/Projects/omp-refs/tern-plugin
+
+Every link omp-refs writes ends in the fragment `#omp-refs`, which GitHub and Linear ignore; the CSS
+keys on it, so ordinary links keep their look. With the plugin linked, omp-refs drops the Unicode
+icons from the link text so the logos are not doubled. It finds the plugin through Tern's config
+folder (`~/Library/Application Support/Tern` on macOS, else `TERN_CONFIG_DIR`); without the plugin,
+or outside Tern, the Unicode icons stay.
+
+The selectors depend on Tern's markup. A Tern update that renames it loses the chips, not the links.
+
 ## Tests
 
 `refs-core.js` is pure JavaScript, so any engine can run its tests:

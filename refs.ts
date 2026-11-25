@@ -14,10 +14,10 @@
 // `repo` defaults to the `origin` remote of the session's directory. Without a Linear workspace and
 // team list, ticket references stay plain; without a GitHub repo, bare `#123` stays plain.
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { iconsOf, linkify } from "./refs-core.js";
+import { MARKER, iconsOf, linkify } from "./refs-core.js";
 
 type Config = {
 	repo?: string;
@@ -45,6 +45,17 @@ function readConfig(): Config {
 	} catch {
 		return {};
 	}
+}
+
+/**
+ * Tern's omp-refs plugin draws the icons in CSS, so the text ones would double them. A linked plugin
+ * is `plugins/omp-refs.path` in Tern's config folder, an installed copy `plugins/omp-refs/`.
+ * shortcut: the default folder is macOS's; elsewhere TERN_CONFIG_DIR must be set, else text icons stay.
+ */
+function ternDrawsIcons(): boolean {
+	if (process.env.TERM_PROGRAM !== "tern") return false;
+	const base = process.env.TERN_CONFIG_DIR ?? join(homedir(), "Library", "Application Support", "Tern");
+	return existsSync(join(base, "plugins", "omp-refs")) || existsSync(join(base, "plugins", "omp-refs.path"));
 }
 
 const repos = new Map<string, string | undefined>();
@@ -79,7 +90,7 @@ function options(): Options {
 			repo: repoOf(cwd),
 			workspace: config.linearWorkspace ?? "",
 			teams: config.linearTeams ?? [],
-			icons: config.icons,
+			icons: ternDrawsIcons() ? { github: "", linear: "", commit: "" } : config.icons,
 		};
 	}
 	return cached;
@@ -165,7 +176,7 @@ export default function refs(pi: any): void {
 					return;
 				}
 				const pairs: string[] = [];
-				for (const match of linked.matchAll(/\[`?([^\]`]+)`?\]\(([^)]+)\)/g)) pairs.push(`${match[1]} → ${match[2]}`);
+				for (const match of linked.matchAll(/\[`?([^\]`]+)`?\]\(([^)]+)\)/g)) pairs.push(`${match[1]} → ${match[2].replace(`#${MARKER}`, "")}`);
 				ctx.ui.notify(pairs.join("\n"), "info");
 				return;
 			}

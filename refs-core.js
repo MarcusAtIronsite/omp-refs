@@ -50,8 +50,11 @@ export function iconsOf(options) {
 	return icons;
 }
 
-/** A link whose text is a code span, so it draws as a tag: `[`icon label`](url)`. */
-const chip = (icon, label, url) => `[\`${icon === "" ? "" : `${icon} `}${label}\`](${url})`;
+/** The fragment on every link this file writes; the Tern plugin's CSS keys on it. GitHub and Linear ignore it. */
+export const MARKER = "omp-refs";
+
+/** A link whose text is a code span, so it draws as a tag: `[`icon label`](url#omp-refs)`. */
+const chip = (icon, label, url) => `[\`${icon === "" ? "" : `${icon} `}${label}\`](${url}#${MARKER})`;
 
 /**
  * Rewrites `owner/repo#12`, `#12`, `ABC-12` and commit SHAs into markdown links.

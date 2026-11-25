@@ -1,0 +1,7 @@
+schema = 1
+id = "omp-refs"
+name = "omp refs"
+version = "0.1.0"
+description = "Draws omp-refs links (GitHub issues, PRs, commits and Linear tickets) as tinted chips with GitHub and Linear icons"
+icon = "link"
+window = "window.luau"
