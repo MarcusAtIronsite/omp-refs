@@ -5,9 +5,9 @@ const LIN = "\u2691";
 const DOT = "\u25cf";
 let failed = 0;
 
-const issue = (label, url) => "[`" + GH + " " + label + "`](" + url + ")";
-const ticket = key => "[`" + LIN + " " + key + "`](https://linear.app/acme/issue/" + key + ")";
-const commit = (label, repo, sha) => "[`" + DOT + " " + label + "`](https://github.com/" + repo + "/commit/" + sha + ")";
+const issue = (label, url) => "[`" + GH + " " + label + "`](" + url + "#omp-refs)";
+const ticket = key => "[`" + LIN + " " + key + "`](https://linear.app/acme/issue/" + key + "#omp-refs)";
+const commit = (label, repo, sha) => "[`" + DOT + " " + label + "`](https://github.com/" + repo + "/commit/" + sha + "#omp-refs)";
 
 function expect(name, input, wanted, options = opts) {
 	const got = linkify(input, options);
@@ -74,10 +74,10 @@ expect(
 
 // Icons: configurable per kind; an empty string drops the icon, backticks cannot break the chip.
 const custom = { ...opts, icons: { github: "PR", linear: "", commit: "a`b" } };
-expect("custom github icon", "#4705", "[`PR #4705`](" + widgets(4705) + ")", custom);
-expect("empty linear icon", "ABC-146", "[`ABC-146`](https://linear.app/acme/issue/ABC-146)", custom);
-expect("backtick icon", "f328eb4", "[`ab f328eb4`](https://github.com/acme/widgets/commit/f328eb4)", custom);
+expect("custom github icon", "#4705", "[`PR #4705`](" + widgets(4705) + "#omp-refs)", custom);
+expect("empty linear icon", "ABC-146", "[`ABC-146`](https://linear.app/acme/issue/ABC-146#omp-refs)", custom);
+expect("backtick icon", "f328eb4", "[`ab f328eb4`](https://github.com/acme/widgets/commit/f328eb4#omp-refs)", custom);
 expect("non-string icon falls back", "ABC-146", ticket("ABC-146"), { ...opts, icons: { linear: 5 } });
-expect("partial icons keep defaults", "#4705 f328eb4", issue("#4705", widgets(4705)) + " [`x f328eb4`](https://github.com/acme/widgets/commit/f328eb4)", { ...opts, icons: { commit: "x" } });
+expect("partial icons keep defaults", "#4705 f328eb4", issue("#4705", widgets(4705)) + " [`x f328eb4`](https://github.com/acme/widgets/commit/f328eb4#omp-refs)", { ...opts, icons: { commit: "x" } });
 
 print(failed === 0 ? "all tests passed" : failed + " failed");
