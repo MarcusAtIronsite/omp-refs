@@ -55,8 +55,9 @@ one.
 
 ## Commands
 
-- `/reflinks` — resolved repo, workspace, teams, icons, config path, cwd, and the drawing hook in use
-  (`message component`, `text renderer`, or `none` on a build too old to draw links).
+- `/reflinks` — resolved repo, workspace, teams, icons, config path, cwd, the drawing hook in use,
+  and whether link URLs are hidden (`drawing:` is `message component`, `text renderer`, or `none`
+  on a build too old to draw links).
 - `/reflinks #4705 ABC-146` — preview the targets without touching a reply.
 
 ## How it draws
@@ -89,6 +90,20 @@ folder (`~/Library/Application Support/Tern` on macOS, else `TERN_CONFIG_DIR`); 
 or outside Tern, the Unicode icons stay.
 
 The selectors depend on Tern's markup. A Tern update that renames it loses the chips, not the links.
+
+## Plain terminals
+
+omp draws every link as `text (url)`, which buries a reply in URLs. Outside Tern, omp-refs draws the
+URL of its own links as nothing, so `⎇ #4329` stands alone and stays clickable through OSC 8 where
+the terminal supports it. Other links keep their URL.
+
+This only happens when omp itself draws hyperlinks in the terminal (`tui.hyperlinks`: `auto` detects
+support, `always` forces it). When it does not, the URL stays visible, because it is the only way to
+open the link. If your terminal handles OSC 8 and the URLs still show, set `tui.hyperlinks` to
+`always`. `/reflinks` has a `urls:` line saying which case you are in.
+
+It works by wrapping omp's `Theme.fg` and the message component's `render`; if omp changes either,
+the URLs show again and nothing breaks.
 
 ## Tests
 

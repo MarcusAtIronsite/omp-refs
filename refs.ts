@@ -127,8 +127,60 @@ const Component: { prototype: { updateContent?: (message: Message, opts?: unknow
 		)
 		.catch(() => undefined);
 
+type Patchable = { prototype: Record<string, unknown> };
+
+/** omp's theme, whose `fg` colours the `(url)` omp prints after every link outside Tern. Imported dynamically: older omp builds serve other modules. */
+const ThemeClass: Patchable | undefined = await import("@oh-my-pi/pi-tui/theme")
+	.then((module: any) => (typeof module.Theme?.prototype?.fg === "function" ? module.Theme : undefined))
+	.catch(() => undefined);
+
+/** Zero-width, so omp wraps lines as if the URL were not there. */
+const HIDDEN = "\u2060";
+const HIDDEN_URL = new RegExp(` ?(?:\\u001b\\]8;;[^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\))?${HIDDEN}(?:\\u001b\\]8;;(?:\\u0007|\\u001b\\\\))?`, "g");
+const PATCHED = Symbol.for("omp-refs.hidden-urls");
+
+/** omp's view of the terminal; `hyperlinks` is whether it draws links as OSC 8, with the URL then clickable on the text. */
+const terminal: { hyperlinks?: boolean } | undefined = await import("@oh-my-pi/pi-tui/terminal-capabilities")
+	.then((module: any) => (typeof module.TERMINAL === "object" ? module.TERMINAL : undefined))
+	.catch(() => undefined);
+
+/** Whether link URLs are hidden in this session, for /reflinks. */
+function urlsState(): string {
+	if (process.env.TERM_PROGRAM === "tern") return "hidden by Tern";
+	if (ThemeClass === undefined || terminal === undefined) return "shown (this omp build cannot hide them)";
+	return terminal.hyperlinks === true ? "hidden (the link text is clickable)" : "shown (omp does not draw hyperlinks in this terminal; if it supports OSC 8, set tui.hyperlinks to always)";
+}
+
+/**
+ * Outside Tern omp draws every link as `text (url)`, which buries a reply in URLs. For the links this
+ * file writes (their URL ends in `#omp-refs`) the URL is drawn as a zero-width mark and the rendered
+ * rows lose it with the space before it; the link text stays clickable where the terminal has OSC 8.
+ * Tern draws links itself and hides the URL, so it is left alone. If omp changes either hook, the URLs
+ * simply show again.
+ */
+function hideUrls(): void {
+	if (process.env.TERM_PROGRAM === "tern") return;
+	const theme = ThemeClass?.prototype as { fg?: (...args: unknown[]) => unknown } | undefined;
+	const component = Component?.prototype as { render?: (...args: unknown[]) => unknown } | undefined;
+	if (theme?.fg === undefined || component?.render === undefined) return;
+	const fg = theme.fg;
+	const render = component.render;
+	if ((fg as unknown as Record<symbol, boolean>)[PATCHED] === true) return;
+	const patchedFg = function (this: unknown, color: unknown, text: unknown, ...rest: unknown[]): unknown {
+		if (terminal?.hyperlinks === true && color === "mdLinkUrl" && typeof text === "string" && text.endsWith(`#${MARKER})`)) return HIDDEN;
+		return fg.call(this, color, text, ...rest);
+	};
+	(patchedFg as unknown as Record<symbol, boolean>)[PATCHED] = true;
+	theme.fg = patchedFg;
+	component.render = function (this: unknown, ...args: unknown[]): unknown {
+		const rows = render.apply(this, args);
+		return Array.isArray(rows) ? rows.map(row => (typeof row === "string" && row.includes(HIDDEN) ? row.replace(HIDDEN_URL, "") : row)) : rows;
+	};
+}
+
 export default function refs(pi: any): void {
 	note(`loaded (component ${Component === undefined ? "unavailable" : "found"})`);
+	hideUrls();
 
 	// Older omp builds (18.10 and earlier) expose neither render hook: references stay plain there.
 	let drawing = "none (this omp build has no render hook; update omp)";
@@ -191,6 +243,7 @@ export default function refs(pi: any): void {
 					`config: ${CONFIG_PATH}`,
 					`cwd: ${cwd}`,
 					`drawing: ${drawing}`,
+					`urls: ${urlsState()}`,
 				].join("\n"),
 				"info",
 			);
