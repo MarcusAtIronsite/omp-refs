@@ -8,27 +8,39 @@
 // omp-stretch does); a plain terminal draws through omp's assistant text renderer instead, which is
 // registered when that module is unavailable.
 //
-// Settings live in ~/.omp/agent/refs.json:
-//   { "repo": "owner/repo", "linearWorkspace": "acme", "linearTeams": ["ABC", "OPS"],
-//     "icons": { "github": "⎇", "linear": "⚑", "commit": "●" } }
-// `repo` defaults to the `origin` remote of the session's directory. Without a Linear workspace and
-// team list, ticket references stay plain; without a GitHub repo, bare `#123` stays plain.
+// Settings live in ~/.omp/agent/refs.json, one object per provider under `providers`:
+//   { "providers": {
+//       "github": { "repo": "owner/repo", "icon": "⎇", "color": "#a371f7",
+//                   "commits": { "icon": "●", "color": "#8b949e" } },
+//       "linear": { "workspace": "acme", "teams": ["ABC", "OPS"], "icon": "⚑", "color": "#5e6ad2" } } }
+// Every provider takes `enabled`, `icon` and `color`; `repo` is GitHub's, `workspace` and `teams`
+// Linear's. `repo` defaults to the `origin` remote of the session's directory. Without a Linear
+// workspace and team list, ticket references stay plain; without a GitHub repo, bare `#123` stays plain.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { MARKER, iconsOf, linkify } from "./refs-core.js";
 
+/** What every provider (and the commits under GitHub) takes; `color` is read by the Tern plugin. */
+type Common = { enabled?: boolean; icon?: string; color?: string };
+
 type Config = {
-	repo?: string;
-	linearWorkspace?: string;
-	linearTeams?: string[];
-	icons?: { github?: string; linear?: string; commit?: string };
+	providers?: {
+		github?: Common & { repo?: string; commits?: Common };
+		linear?: Common & { workspace?: string; teams?: string[] };
+	};
 };
 
 type TextBlock = { type: string; text?: string };
 type Message = { content?: unknown };
-type Options = { repo: string | undefined; workspace: string; teams: string[]; icons: Config["icons"] };
+type Options = {
+	repo: string | undefined;
+	workspace: string;
+	teams: string[];
+	icons: { github?: string; linear?: string; commit?: string };
+	off: { github: boolean; linear: boolean; commit: boolean };
+};
 
 const CONFIG_PATH = join(homedir(), ".omp", "agent", "refs.json");
 const DEBUG = process.env.OMP_REFS_DEBUG !== undefined ? "/tmp/omp-refs-debug.log" : undefined;
@@ -65,7 +77,8 @@ let cached: Options | undefined;
 
 /** `owner/repo` for a directory's origin remote, or the configured repo. */
 function repoOf(directory: string): string | undefined {
-	if (config.repo !== undefined && config.repo !== "") return config.repo;
+	const configured = config.providers?.github?.repo;
+	if (typeof configured === "string" && configured !== "") return configured;
 	if (repos.has(directory)) return repos.get(directory);
 	let repo: string | undefined;
 	try {
@@ -86,11 +99,23 @@ function repoOf(directory: string): string | undefined {
 
 function options(): Options {
 	if (cached === undefined) {
+		const github = config.providers?.github;
+		const linear = config.providers?.linear;
+		const commits = github?.commits;
+		const teams = linear?.teams;
 		cached = {
 			repo: repoOf(cwd),
-			workspace: config.linearWorkspace ?? "",
-			teams: config.linearTeams ?? [],
-			icons: ternDrawsIcons() ? { github: "", linear: "", commit: "" } : config.icons,
+			workspace: typeof linear?.workspace === "string" ? linear.workspace : "",
+			teams: Array.isArray(teams) ? teams.filter((key): key is string => typeof key === "string") : [],
+			icons: ternDrawsIcons()
+				? { github: "", linear: "", commit: "" }
+				: { github: github?.icon, linear: linear?.icon, commit: commits?.icon },
+			// Commits belong to GitHub: switching GitHub off switches them off too.
+			off: {
+				github: github?.enabled === false,
+				linear: linear?.enabled === false,
+				commit: github?.enabled === false || commits?.enabled === false,
+			},
 		};
 	}
 	return cached;
@@ -234,12 +259,12 @@ export default function refs(pi: any): void {
 			}
 			const settings = options();
 			const shown = iconsOf(settings);
+			const state = (off: boolean | undefined, icon: string): string => `${off === true ? "off" : "on"}, icon ${icon || "(none)"}`;
 			ctx.ui.notify(
 				[
-					`repo: ${settings.repo ?? "(none — #123 stays plain)"}`,
-					`linear: ${settings.workspace === "" ? "(unset — tickets stay plain)" : settings.workspace}`,
-					`teams: ${settings.teams.length === 0 ? "(unset)" : settings.teams.join(", ")}`,
-					`icons: github ${shown.github || "(none)"}, linear ${shown.linear || "(none)"}, commit ${shown.commit || "(none)"}`,
+					`github: ${state(settings.off.github, shown.github)}, repo ${settings.repo ?? "(none — #123 stays plain)"}`,
+					`commits: ${state(settings.off.commit, shown.commit)}`,
+					`linear: ${state(settings.off.linear, shown.linear)}, workspace ${settings.workspace === "" ? "(unset)" : settings.workspace}, teams ${settings.teams.length === 0 ? "(unset — tickets stay plain)" : settings.teams.join(", ")}`,
 					`config: ${CONFIG_PATH}`,
 					`cwd: ${cwd}`,
 					`drawing: ${drawing}`,

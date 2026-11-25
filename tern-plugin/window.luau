@@ -37,10 +37,11 @@ local LAYOUTS = {
 	".sf-chat-reader [data-role^='omp.assistant'] > .sf-md .md a",
 }
 
--- The tints are the defaults below, overridden by `colors` in ~/.omp/agent/refs.json (the file refs.ts
--- reads): { "colors": { "github": "#a371f7", "linear": "#5e6ad2", "commit": "#8b949e" } }. Only a hex
--- colour (#rgb, #rgba, #rrggbb, #rrggbbaa) is taken, since the value lands in CSS and in the logo's
--- SVG. The file is read when the plugin loads: `tern plugin reload omp-refs` applies a change.
+-- The tints are the defaults below, overridden by `color` in ~/.omp/agent/refs.json (the file refs.ts
+-- reads): providers.github.color for issues and PRs, providers.github.commits.color for commits,
+-- providers.linear.color for tickets. Only a hex colour (#rgb, #rgba, #rrggbb, #rrggbbaa) is taken,
+-- since the value lands in CSS and in the logo's SVG. The file is read when the plugin loads:
+-- `tern plugin reload omp-refs` applies a change.
 local function configuredColors(): { [string]: string }
 	local colors: { [string]: string } = {}
 	local home = tern.getenv("HOME") or tern.getenv("USERPROFILE")
@@ -52,16 +53,21 @@ local function configuredColors(): { [string]: string }
 		return colors
 	end
 	local decoded, config = pcall(tern.json.decode, text)
-	local given = decoded and type(config) == "table" and config.colors or nil
-	if type(given) ~= "table" then
+	if not decoded or type(config) ~= "table" then
 		return colors
 	end
-	for kind, value in given do
+	local function take(kind: string, source: any)
+		local value = type(source) == "table" and source.color or nil
 		local size = type(value) == "string" and #value or 0
-		if type(kind) == "string" and type(value) == "string" and string.match(value, "^#%x+$") and (size == 4 or size == 5 or size == 7 or size == 9) then
+		if type(value) == "string" and string.match(value, "^#%x+$") and (size == 4 or size == 5 or size == 7 or size == 9) then
 			colors[kind] = value
 		end
 	end
+	local providers = config.providers
+	local github = type(providers) == "table" and providers.github or nil
+	take("github", github)
+	take("commit", type(github) == "table" and github.commits or nil)
+	take("linear", type(providers) == "table" and providers.linear or nil)
 	return colors
 end
 

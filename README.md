@@ -35,40 +35,63 @@ for Homebrew).
 
 ## Settings
 
-At `~/.omp/agent/refs.json`:
+At `~/.omp/agent/refs.json`, one object per provider under `providers`:
 
 ```json
 {
-  "repo": "acme/widgets",
-  "linearWorkspace": "acme",
-  "linearTeams": ["ABC", "OPS"],
-  "icons": { "github": "⎇", "linear": "⚑", "commit": "●" },
-  "colors": { "github": "#a371f7", "linear": "#5e6ad2", "commit": "#8b949e" }
+  "providers": {
+    "github": {
+      "repo": "acme/widgets",
+      "icon": "⎇",
+      "color": "#a371f7",
+      "commits": { "icon": "●", "color": "#8b949e" }
+    },
+    "linear": {
+      "workspace": "acme",
+      "teams": ["ABC", "OPS"],
+      "icon": "⚑",
+      "color": "#5e6ad2"
+    }
+  }
 }
 ```
 
-- `repo` — used for bare `#123`. Defaults to the `origin` remote of the session's directory; without
-  one, bare references stay plain. `owner/repo#123` always links on its own.
-- `linearWorkspace` — the `linear.app/<workspace>` slug. Unset leaves tickets plain.
-- `linearTeams` — the team keys worth linking, so `UTF-8` and `SHA-256` never become tickets. Unset
-  leaves tickets plain.
-- `icons` — the symbol at the left of each tag, per kind: `github` (issues and PRs, default `⎇`),
-  `linear` (tickets, default `⚑`), `commit` (SHAs, default `●`). An empty string drops the icon;
-  backticks and line breaks are removed.
-- `colors` — the tint of each chip in Tern, per kind: `github` (default `#a371f7`), `linear`
-  (`#5e6ad2`), `commit` (`#8b949e`). Only a hex colour (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`) is
-  taken; anything else keeps the default. It sets the border, the fill and the logo; the text keeps
-  Tern's code colour. Plain terminals use the theme's colours and ignore it. The Tern plugin reads
-  it when it loads, so run `tern plugin reload omp-refs` after a change.
+Every key is optional. Fields every provider takes:
+
+- `enabled` — `false` turns the provider off: its references stay plain. Default `true`.
+- `icon` — the symbol at the left of each tag. An empty string drops it; backticks and line breaks
+  are removed. Defaults: `⎇` GitHub, `⚑` Linear, `●` commits.
+- `color` — the tint of the chip in Tern, as a hex colour (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`);
+  anything else keeps the default. It sets the border, the fill and the logo; the text keeps Tern's
+  code colour. Plain terminals use the theme's colours and ignore it. The Tern plugin reads it when
+  it loads, so run `tern plugin reload omp-refs` after a change. Defaults: `#a371f7` GitHub,
+  `#5e6ad2` Linear, `#8b949e` commits.
+
+`github` (issues, pull requests and commits):
+
+- `repo` — used for bare `#123` and bare SHAs. Defaults to the `origin` remote of the session's
+  directory; without one, bare references stay plain. `owner/repo#123` and `owner/repo@sha` always
+  link on their own.
+- `commits` — the commit SHAs, with the same `enabled`, `icon` and `color`. Turning `github` off turns
+  commits off too.
+
+`linear`:
+
+- `workspace` — the `linear.app/<workspace>` slug. Unset leaves tickets plain.
+- `teams` — the team keys worth linking, so `UTF-8` and `SHA-256` never become tickets. Unset leaves
+  tickets plain.
+
+The earlier flat keys (`repo`, `linearWorkspace`, `linearTeams`, `icons`, `colors`) are no longer
+read; move them under `providers`.
 
 A bare `#123` links to `/issues/123`, which GitHub redirects to the pull request when that number is
 one.
 
 ## Commands
 
-- `/reflinks` — resolved repo, workspace, teams, icons, config path, cwd, the drawing hook in use,
-  and whether link URLs are hidden (`drawing:` is `message component`, `text renderer`, or `none`
-  on a build too old to draw links).
+- `/reflinks` — each provider's state, icon and settings, the config path, cwd, the drawing hook in
+  use, and whether link URLs are hidden (`drawing:` is `message component`, `text renderer`, or
+  `none` on a build too old to draw links).
 - `/reflinks #4705 ABC-146` — preview the targets without touching a reply.
 
 ## How it draws

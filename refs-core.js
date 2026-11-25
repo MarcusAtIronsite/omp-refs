@@ -100,9 +100,9 @@ const ISSUE_TEXT = /^(?:(?:PR|issue)\s+)?(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0
  * printed after it outside Tern, and as a plain link in Tern. When its text is exactly the reference
  * its URL names (a Linear key, `#12` or `PR #12` for an issue or PR URL, a SHA for a commit URL), it
  * becomes a chip like the references omp-refs finds itself. Descriptive link text is left alone.
- * Returns undefined when nothing changed.
+ * A kind switched off in `on` is left alone too. Returns undefined when nothing changed.
  */
-function adoptLinks(text, icons) {
+function adoptLinks(text, icons, on) {
 	if (!text.includes("](https://")) return undefined;
 	const skip = new Uint8Array(text.length);
 	for (const pattern of [PROTECTED[0], PROTECTED[1], INLINE_CODE]) {
@@ -123,9 +123,9 @@ function adoptLinks(text, icons) {
 		if (skip[match.index] === 1 || (match.index > 0 && text[match.index - 1] === "!")) continue;
 		let icon;
 		let reference = LINEAR_URL.exec(url);
-		if (reference !== null && label === reference[1]) icon = icons.linear;
-		else if ((reference = ISSUE_URL.exec(url)) !== null && (ISSUE_TEXT.exec(label) || [])[1] === reference[1]) icon = icons.github;
-		else if ((reference = COMMIT_URL.exec(url)) !== null && /^[0-9a-f]{7,40}$/.test(label) && isSha(label) && reference[1].startsWith(label)) icon = icons.commit;
+		if (on.linear && reference !== null && label === reference[1]) icon = icons.linear;
+		else if (on.github && (reference = ISSUE_URL.exec(url)) !== null && (ISSUE_TEXT.exec(label) || [])[1] === reference[1]) icon = icons.github;
+		else if (on.commit && (reference = COMMIT_URL.exec(url)) !== null && /^[0-9a-f]{7,40}$/.test(label) && isSha(label) && reference[1].startsWith(label)) icon = icons.commit;
 		if (icon === undefined) continue;
 		out += text.slice(last, match.index) + chip(icon, label, url);
 		last = match.index + whole.length;
@@ -145,7 +145,9 @@ export function linkify(text, options) {
 	const workspace = (options && options.workspace) || "linear.app";
 	const teams = new Set(((options && options.teams) || []).map(key => String(key).toUpperCase()));
 	const icons = iconsOf(options);
-	const adopted = adoptLinks(text, icons);
+	const off = (options && options.off) || {};
+	const on = { github: !off.github, linear: !off.linear, commit: !off.commit };
+	const adopted = adoptLinks(text, icons, on);
 	if (adopted !== undefined) text = adopted;
 	const blocked = maskOf(text, true);
 	const outer = maskOf(text, false);
@@ -160,35 +162,35 @@ export function linkify(text, options) {
 		const rest = text.slice(index);
 		const before = index > 0 ? text[index - 1] : "";
 		let match = OWNER_REPO_REF.exec(rest);
-		if (match !== null && free(index, match[0].length) && !WORDISH.test(before)) {
+		if (on.github && match !== null && free(index, match[0].length) && !WORDISH.test(before)) {
 			out += chip(icons.github, match[0], `https://github.com/${match[1]}/${match[2]}/issues/${match[3]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = BARE_REF.exec(rest);
-		if (match !== null && repo !== undefined && free(index, match[0].length) && !WORDISH.test(before)) {
+		if (on.github && match !== null && repo !== undefined && free(index, match[0].length) && !WORDISH.test(before)) {
 			out += chip(icons.github, match[0], `https://github.com/${repo}/issues/${match[1]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = TICKET.exec(rest);
-		if (match !== null && teams.has(match[1]) && free(index, match[0].length) && !/[A-Za-z0-9_-]/.test(before)) {
+		if (on.linear && match !== null && teams.has(match[1]) && free(index, match[0].length) && !/[A-Za-z0-9_-]/.test(before)) {
 			out += chip(icons.linear, match[0], `https://linear.app/${workspace}/issue/${match[0]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = REPO_SHA.exec(rest);
-		if (match !== null && isSha(match[3]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
+		if (on.commit && match !== null && isSha(match[3]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
 			out += chip(icons.commit, match[0], `https://github.com/${match[1]}/${match[2]}/commit/${match[3]}`);
 			index += match[0].length;
 			changed = true;
 			continue;
 		}
 		match = BARE_SHA.exec(rest);
-		if (match !== null && repo !== undefined && isSha(match[0]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
+		if (on.commit && match !== null && repo !== undefined && isSha(match[0]) && free(index, match[0].length) && !SHA_BEFORE.test(before)) {
 			out += chip(icons.commit, match[0], `https://github.com/${repo}/commit/${match[0]}`);
 			index += match[0].length;
 			changed = true;
@@ -196,7 +198,7 @@ export function linkify(text, options) {
 		}
 		// A code span that is exactly one SHA keeps its code style inside the link.
 		match = CODE_SHA.exec(rest);
-		if (match !== null && free(index, match[0].length, outer)) {
+		if (on.commit && match !== null && free(index, match[0].length, outer)) {
 			const target = match[1] === undefined ? (repo !== undefined && isSha(match[3]) ? repo : undefined) : isSha(match[3]) ? `${match[1]}/${match[2]}` : undefined;
 			if (target !== undefined) {
 				out += chip(icons.commit, match[0].slice(1, -1), `https://github.com/${target}/commit/${match[3]}`);

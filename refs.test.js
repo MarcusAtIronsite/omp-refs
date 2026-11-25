@@ -107,4 +107,17 @@ expect("adopt other host", "[ABC-146](https://example.com/issue/ABC-146)", undef
 expect("adopt link with fragment", "[#4329](" + pull + "#issuecomment-1)", undefined);
 expect("adopt second pass", linkify("[ABC-146](https://linear.app/acme/issue/ABC-146)", opts), undefined);
 
+// Providers switched off stay plain, kind by kind; owner/repo forms and adopted links obey too.
+const everything = "#4705 ABC-146 f328eb4 acme/other#7 [ABC-146](https://linear.app/acme/issue/ABC-146)";
+const withOff = off => linkify(everything, { ...opts, off });
+const noGithub = withOff({ github: true, commit: true });
+expect("github off keeps linear", "#4705 acme/other#7 ABC-146", "#4705 acme/other#7 " + ticket("ABC-146"), { ...opts, off: { github: true } });
+expect("linear off", "ABC-146 [ABC-146](https://linear.app/acme/issue/ABC-146) #4705", "ABC-146 [ABC-146](https://linear.app/acme/issue/ABC-146) " + issue("#4705", widgets(4705)), { ...opts, off: { linear: true } });
+expect("commits off keeps issues", "#4705 f328eb4 `f328eb4` acme/other@f328eb4", issue("#4705", widgets(4705)) + " f328eb4 `f328eb4` acme/other@f328eb4", { ...opts, off: { commit: true } });
+expect("all off", everything, undefined, { ...opts, off: { github: true, linear: true, commit: true } });
+if (noGithub === undefined || noGithub.includes("#omp-refs)") === false || noGithub.includes(GH)) {
+	failed += 1;
+	print("FAIL github+commit off: " + JSON.stringify(noGithub));
+}
+
 print(failed === 0 ? "all tests passed" : failed + " failed");
