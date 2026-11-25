@@ -42,7 +42,8 @@ At `~/.omp/agent/refs.json`:
   "repo": "acme/widgets",
   "linearWorkspace": "acme",
   "linearTeams": ["ABC", "OPS"],
-  "icons": { "github": "⎇", "linear": "⚑", "commit": "●" }
+  "icons": { "github": "⎇", "linear": "⚑", "commit": "●" },
+  "colors": { "github": "#a371f7", "linear": "#5e6ad2", "commit": "#8b949e" }
 }
 ```
 
@@ -54,6 +55,11 @@ At `~/.omp/agent/refs.json`:
 - `icons` — the symbol at the left of each tag, per kind: `github` (issues and PRs, default `⎇`),
   `linear` (tickets, default `⚑`), `commit` (SHAs, default `●`). An empty string drops the icon;
   backticks and line breaks are removed.
+- `colors` — the tint of each chip in Tern, per kind: `github` (default `#a371f7`), `linear`
+  (`#5e6ad2`), `commit` (`#8b949e`). Only a hex colour (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`) is
+  taken; anything else keeps the default. It sets the border, the fill and the logo; the text keeps
+  Tern's code colour. Plain terminals use the theme's colours and ignore it. The Tern plugin reads
+  it when it loads, so run `tern plugin reload omp-refs` after a change.
 
 A bare `#123` links to `/issues/123`, which GitHub redirects to the pull request when that number is
 one.

@@ -37,11 +37,41 @@ local LAYOUTS = {
 	".sf-chat-reader [data-role^='omp.assistant'] > .sf-md .md a",
 }
 
+-- The tints are the defaults below, overridden by `colors` in ~/.omp/agent/refs.json (the file refs.ts
+-- reads): { "colors": { "github": "#a371f7", "linear": "#5e6ad2", "commit": "#8b949e" } }. Only a hex
+-- colour (#rgb, #rgba, #rrggbb, #rrggbbaa) is taken, since the value lands in CSS and in the logo's
+-- SVG. The file is read when the plugin loads: `tern plugin reload omp-refs` applies a change.
+local function configuredColors(): { [string]: string }
+	local colors: { [string]: string } = {}
+	local home = tern.getenv("HOME") or tern.getenv("USERPROFILE")
+	if not home then
+		return colors
+	end
+	local read, text = pcall(tern.fs.read, home .. "/.omp/agent/refs.json")
+	if not read or type(text) ~= "string" then
+		return colors
+	end
+	local decoded, config = pcall(tern.json.decode, text)
+	local given = decoded and type(config) == "table" and config.colors or nil
+	if type(given) ~= "table" then
+		return colors
+	end
+	for kind, value in given do
+		local size = type(value) == "string" and #value or 0
+		if type(kind) == "string" and type(value) == "string" and string.match(value, "^#%x+$") and (size == 4 or size == 5 or size == 7 or size == 9) then
+			colors[kind] = value
+		end
+	end
+	return colors
+end
+
+local COLORS = configuredColors()
+
 -- One kind: the attribute filter that picks it, its tint, and its logo.
 local KINDS = {
-	{ filter = "[href^='https://github.com/'][href*='/commit/']", tint = "#8b949e", svg = COMMIT },
-	{ filter = "[href^='https://github.com/']:not([href*='/commit/'])", tint = "#a371f7", svg = GITHUB },
-	{ filter = "[href^='https://linear.app/']", tint = "#5e6ad2", svg = LINEAR },
+	{ filter = "[href^='https://github.com/'][href*='/commit/']", tint = COLORS.commit or "#8b949e", svg = COMMIT },
+	{ filter = "[href^='https://github.com/']:not([href*='/commit/'])", tint = COLORS.github or "#a371f7", svg = GITHUB },
+	{ filter = "[href^='https://linear.app/']", tint = COLORS.linear or "#5e6ad2", svg = LINEAR },
 }
 
 -- The rules of one chip: its box, its hover, its inner code span, its icon box and its end cap. No
